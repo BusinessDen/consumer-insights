@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BusinessDen Consumer Insights</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root {
+  --bg: #0f1117;
+  --bg2: #181a24;
+  --bg3: #1e2130;
+  --border: #2a2d3e;
+  --text: #d1d5e0;
+  --text2: #8b90a0;
+  --accent: #4a9eff;
+  --accent2: #34d399;
+  --accent3: #f59e0b;
+  --accent4: #ef4444;
+  --accent5: #a78bfa;
+  --radius: 8px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; font-size:14px; line-height:1.5; }
+a { color:var(--accent); text-decoration:none; }
+
+/* Header */
+.header { background:var(--bg2); border-bottom:1px solid var(--border); padding:16px 24px; display:flex; justify-content:space-between; align-items:center; }
+.header h1 { font-size:18px; font-weight:600; letter-spacing:-0.3px; }
+.header h1 span { color:var(--accent); }
+.header .meta { color:var(--text2); font-size:12px; }
+
+/* Tabs */
+.tabs { display:flex; gap:0; background:var(--bg2); border-bottom:1px solid var(--border); padding:0 24px; overflow-x:auto; }
+.tab { padding:12px 20px; cursor:pointer; color:var(--text2); font-size:13px; font-weight:500; border-bottom:2px solid transparent; white-space:nowrap; transition:all 0.15s; }
+.tab:hover { color:var(--text); }
+.tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+/* Content */
+.content { padding:24px; max-width:1400px; margin:0 auto; }
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+
+/* KPI Cards */
+.kpi-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:16px; margin-bottom:24px; }
+.kpi { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:20px; }
+.kpi .label { font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text2); margin-bottom:4px; }
+.kpi .value { font-size:28px; font-weight:700; letter-spacing:-1px; }
+.kpi .sub { font-size:11px; color:var(--text2); margin-top:2px; }
+
+/* Cards */
+.card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:16px; }
+.card h3 { font-size:14px; font-weight:600; margin-bottom:16px; color:var(--text); }
+.row { display:grid; gap:16px; margin-bottom:16px; }
+.row-2 { grid-template-columns:1fr 1fr; }
+.row-3 { grid-template-columns:1fr 1fr 1fr; }
+@media(max-width:900px) { .row-2,.row-3 { grid-template-columns:1fr; } }
+
+/* Tables */
+.table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th { text-align:left; padding:8px 12px; border-bottom:2px solid var(--border); color:var(--text2); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; cursor:pointer; white-space:nowrap; user-select:none; }
+th:hover { color:var(--text); }
+th.sorted-asc::after { content:' ▲'; font-size:9px; }
+th.sorted-desc::after { content:' ▼'; font-size:9px; }
+td { padding:8px 12px; border-bottom:1px solid var(--border); }
+tr:hover td { background:var(--bg3); }
+tr.clickable { cursor:pointer; }
+td.num { text-align:right; font-variant-numeric:tabular-nums; }
+
+/* Search */
+.search-bar { display:flex; gap:12px; margin-bottom:16px; align-items:center; flex-wrap:wrap; }
+.search-bar input { background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius); padding:8px 14px; color:var(--text); font-size:13px; width:280px; outline:none; }
+.search-bar input:focus { border-color:var(--accent); }
+.search-bar select { background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius); padding:8px 14px; color:var(--text); font-size:13px; outline:none; }
+.search-bar .count { color:var(--text2); font-size:12px; }
+.btn { background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius); padding:6px 14px; color:var(--text); font-size:12px; cursor:pointer; transition:all 0.15s; }
+.btn:hover { border-color:var(--accent); color:var(--accent); }
+.btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+/* Detail panel */
+.detail-panel { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); padding:24px; margin-top:16px; display:none; }
+.detail-panel.open { display:block; }
+.detail-panel h2 { font-size:16px; margin-bottom:4px; }
+.detail-panel .detail-meta { color:var(--text2); font-size:12px; margin-bottom:20px; }
+.detail-close { float:right; cursor:pointer; color:var(--text2); font-size:18px; padding:4px 8px; }
+.detail-close:hover { color:var(--text); }
+
+/* Chart containers */
+.chart-container { position:relative; height:300px; }
+.chart-sm { height:220px; }
+.chart-lg { height:400px; }
+
+/* Heatmap */
+.heatmap { display:grid; grid-template-columns:auto repeat(24,1fr); gap:1px; font-size:10px; }
+.heatmap .day-label { padding:4px 8px; text-align:right; color:var(--text2); display:flex; align-items:center; justify-content:flex-end; }
+.heatmap .cell { aspect-ratio:1; border-radius:2px; display:flex; align-items:center; justify-content:center; font-size:8px; color:transparent; transition:all 0.15s; }
+.heatmap .cell:hover { color:var(--text); transform:scale(1.3); z-index:1; }
+.heatmap .hour-label { text-align:center; color:var(--text2); padding:2px 0; }
+
+/* Map */
+.map-container { height:400px; border-radius:var(--radius); overflow:hidden; }
+.map-sm { height:300px; }
+.leaflet-container { background:var(--bg3)!important; }
+
+/* Loading */
+.loading { display:flex; align-items:center; justify-content:center; height:400px; color:var(--text2); }
+.loading::after { content:''; width:24px; height:24px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.6s linear infinite; margin-left:12px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Tooltip */
+.tooltip { position:absolute; background:var(--bg2); border:1px solid var(--border); border-radius:6px; padding:8px 12px; font-size:12px; pointer-events:none; z-index:1000; box-shadow:0 4px 12px rgba(0,0,0,0.4); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>BusinessDen</span> Consumer Insights</h1>
+  <div class="meta" id="headerMeta">Loading...</div>
+</div>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-tab="overview">Overview</div>
+  <div class="tab" data-tab="articles">Articles</div>
+  <div class="tab" data-tab="audience">Audience</div>
+  <div class="tab" data-tab="conversion">Conversion</div>
+  <div class="tab" data-tab="trends">Trends</div>
+  <div class="tab" data-tab="seo">SEO</div>
+</div>
+
+<div class="content">
+
+<!-- OVERVIEW TAB -->
+<div class="tab-panel active" id="panel-overview">
+  <div class="kpi-row" id="kpiCards"></div>
+  <div class="row row-2">
+    <div class="card">
+      <h3>Traffic Sources</h3>
+      <div class="chart-container"><canvas id="chartTrafficSources"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Top Cities</h3>
+      <div class="chart-container"><canvas id="chartTopCities"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Top Articles <span style="color:var(--text2);font-weight:400;font-size:12px">(90-day trailing)</span></h3>
+    <div class="table-wrap">
+      <table id="topArticlesTable"></table>
+    </div>
+  </div>
+</div>
+
+<!-- ARTICLES TAB -->
+<div class="tab-panel" id="panel-articles">
+  <div class="search-bar">
+    <input type="text" id="articleSearch" placeholder="Search articles...">
+    <select id="articleCategoryFilter"><option value="">All categories</option></select>
+    <select id="articleSort">
+      <option value="pageviews">Most viewed</option>
+      <option value="users">Most users</option>
+      <option value="bounce">Lowest bounce</option>
+      <option value="duration">Longest read</option>
+      <option value="subs">Most subscriptions</option>
+    </select>
+    <div class="count" id="articleCount"></div>
+  </div>
+  <div class="card">
+    <div class="table-wrap">
+      <table id="articlesTable"></table>
+    </div>
+    <div style="text-align:center;padding:12px">
+      <button class="btn" id="loadMoreArticles">Show more articles</button>
+    </div>
+  </div>
+  <div class="detail-panel" id="articleDetail"></div>
+</div>
+
+<!-- AUDIENCE TAB -->
+<div class="tab-panel" id="panel-audience">
+  <div class="row row-2">
+    <div class="card">
+      <h3>Device Breakdown</h3>
+      <div class="chart-container chart-sm"><canvas id="chartDevice"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>New vs Returning Readers</h3>
+      <div class="chart-container chart-sm"><canvas id="chartNewReturn"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Geographic Readership</h3>
+    <div class="map-container" id="audienceMap"></div>
+  </div>
+  <div class="card">
+    <h3>When Readers Are Active <span style="color:var(--text2);font-weight:400;font-size:12px">(30-day, MT hours)</span></h3>
+    <div class="heatmap" id="heatmap"></div>
+  </div>
+</div>
+
+<!-- CONVERSION TAB -->
+<div class="tab-panel" id="panel-conversion">
+  <div class="kpi-row" id="convKpis"></div>
+  <div class="row row-2">
+    <div class="card">
+      <h3>Subscriptions by Source</h3>
+      <div class="chart-container"><canvas id="chartSubSources"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Top Converting Articles</h3>
+      <div class="table-wrap">
+        <table id="convArticlesTable"></table>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Conversion Funnel Detail</h3>
+    <div class="table-wrap">
+      <table id="funnelTable"></table>
+    </div>
+  </div>
+</div>
+
+<!-- TRENDS TAB -->
+<div class="tab-panel" id="panel-trends">
+  <div class="card">
+    <h3>Daily Pageviews &amp; Users <span style="color:var(--text2);font-weight:400;font-size:12px">(90-day)</span></h3>
+    <div class="chart-container chart-lg"><canvas id="chartDaily"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>Daily Sessions &amp; New Users</h3>
+    <div class="chart-container chart-lg"><canvas id="chartDailySessions"></canvas></div>
+  </div>
+</div>
+
+<!-- SEO TAB -->
+<div class="tab-panel" id="panel-seo">
+  <div class="card" id="seoContent">
+    <h3>Search Queries</h3>
+    <p style="color:var(--text2);padding:40px 0;text-align:center">
+      Search Console data is pending. Once the service account is granted access, search query data will appear here — showing what people googled to find BusinessDen articles, with clicks, impressions, CTR, and average position.
+    </p>
+  </div>
+</div>
+
+</div>
+
+<script>
+// =========================================================================
+// Data & State
+// =========================================================================
+let DATA = null;
+let articlePage = 0;
+const PAGE_SIZE = 20;
+const chartInstances = {};
+
+// =========================================================================
+// Init
+// =========================================================================
+async function init() {
+  try {
+    const resp = await fetch('data/consumer_insights.json');
+    DATA = await resp.json();
+  } catch(e) {
+    // Try parent directory (for local dev)
+    try {
+      const resp = await fetch('../data/consumer_insights.json');
+      DATA = await resp.json();
+    } catch(e2) {
+      document.querySelector('.content').innerHTML = '<div class="loading">Failed to load data</div>';
+      return;
+    }
+  }
+
+  // Header meta
+  const d = DATA.meta.date_ranges.standard;
+  document.getElementById('headerMeta').textContent =
+    `Run #${DATA.meta.run_number} · ${d.start} → ${d.end} · Generated ${DATA.meta.generated_at.slice(0,16).replace('T',' ')} UTC`;
+
+  setupTabs();
+  renderOverview();
+}
+
+// =========================================================================
+// Tabs
+// =========================================================================
+function setupTabs() {
+  const tabs = document.querySelectorAll('.tab');
+  tabs.forEach(t => {
+    t.addEventListener('click', () => {
+      tabs.forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      const panel = document.getElementById('panel-' + t.dataset.tab);
+      panel.classList.add('active');
+
+      // Lazy render
+      const tab = t.dataset.tab;
+      if (tab === 'articles' && !panel.dataset.rendered) { renderArticles(); panel.dataset.rendered = '1'; }
+      if (tab === 'audience' && !panel.dataset.rendered) { renderAudience(); panel.dataset.rendered = '1'; }
+      if (tab === 'conversion' && !panel.dataset.rendered) { renderConversion(); panel.dataset.rendered = '1'; }
+      if (tab === 'trends' && !panel.dataset.rendered) { renderTrends(); panel.dataset.rendered = '1'; }
+      if (tab === 'seo' && !panel.dataset.rendered) { renderSEO(); panel.dataset.rendered = '1'; }
+    });
+  });
+}
+
+// =========================================================================
+// Utilities
+// =========================================================================
+function fmt(n) { return n == null ? '—' : n.toLocaleString(); }
+function pct(n) { return n == null ? '—' : (n * 100).toFixed(1) + '%'; }
+function dur(s) { if (!s) return '—'; const m = Math.floor(s/60); return m > 0 ? `${m}m ${Math.round(s%60)}s` : `${Math.round(s)}s`; }
+function slug(path) {
+  const parts = path.replace(/\/$/, '').split('/');
+  return parts[parts.length - 1].replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function getArticleSubs() {
+  const subs = {};
+  for (const r of (DATA.subscription_funnel || [])) {
+    const p = r.landingPage.endsWith('/') ? r.landingPage : r.landingPage + '/';
+    subs[p] = (subs[p] || 0) + r.eventCount;
+  }
+  return subs;
+}
+
+function getCategoryMap() {
+  const m = {};
+  for (const r of (DATA.categories || [])) {
+    m[r.path] = r.categories;
+  }
+  return m;
+}
+
+function getSourceTotals() {
+  const totals = {};
+  for (const r of (DATA.traffic_sources || [])) {
+    const key = r.sessionSource + ' / ' + r.sessionMedium;
+    totals[key] = (totals[key] || 0) + r.screenPageViews;
+  }
+  return Object.entries(totals).sort((a, b) => b[1] - a[1]);
+}
+
+const CHART_COLORS = ['#4a9eff','#34d399','#f59e0b','#ef4444','#a78bfa','#ec4899','#06b6d4','#84cc16','#f97316','#6366f1'];
+
+function chartDefaults() {
+  Chart.defaults.color = '#8b90a0';
+  Chart.defaults.borderColor = '#2a2d3e';
+  Chart.defaults.font.family = "'Segoe UI',system-ui,sans-serif";
+  Chart.defaults.font.size = 11;
+}
+
+function destroyChart(id) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+}
+
+// =========================================================================
+// OVERVIEW TAB
+// =========================================================================
+function renderOverview() {
+  chartDefaults();
+  const eng = DATA.engagement || [];
+  const daily = DATA.daily_time_series || [];
+  const funnel = DATA.subscription_funnel || [];
+
+  const totalViews = eng.reduce((s, r) => s + (r.screenPageViews || 0), 0);
+  const totalUsers = eng.reduce((s, r) => s + (r.totalUsers || 0), 0);
+  const totalSessions = eng.reduce((s, r) => s + (r.sessions || 0), 0);
+  const totalSubs = funnel.reduce((s, r) => s + (r.eventCount || 0), 0);
+  const totalNew = daily.reduce((s, r) => s + (r.newUsers || 0), 0);
+  const articleCount = eng.length;
+
+  document.getElementById('kpiCards').innerHTML = [
+    { label: 'Pageviews', value: fmt(totalViews), sub: '90-day' },
+    { label: 'Unique Users', value: fmt(totalUsers), sub: '90-day' },
+    { label: 'Sessions', value: fmt(totalSessions), sub: '90-day' },
+    { label: 'New Users', value: fmt(totalNew), sub: '90-day' },
+    { label: 'Subscriptions', value: fmt(totalSubs), sub: '90-day' },
+    { label: 'Articles', value: fmt(articleCount), sub: 'tracked' },
+  ].map(k => `<div class="kpi"><div class="label">${k.label}</div><div class="value">${k.value}</div><div class="sub">${k.sub}</div></div>`).join('');
+
+  // Traffic Sources chart
+  const sources = getSourceTotals().slice(0, 8);
+  destroyChart('chartTrafficSources');
+  chartInstances['chartTrafficSources'] = new Chart(document.getElementById('chartTrafficSources'), {
+    type: 'bar',
+    data: {
+      labels: sources.map(s => s[0]),
+      datasets: [{ data: sources.map(s => s[1]), backgroundColor: CHART_COLORS, borderRadius: 4, barThickness: 28 }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { grid: { color: '#1e2130' } }, y: { grid: { display: false } } }
+    }
+  });
+
+  // Top Cities chart
+  const cities = (DATA.geographic_site_level || []).slice(0, 10);
+  destroyChart('chartTopCities');
+  chartInstances['chartTopCities'] = new Chart(document.getElementById('chartTopCities'), {
+    type: 'bar',
+    data: {
+      labels: cities.map(c => c.city === '(not set)' ? 'Unknown' : c.city),
+      datasets: [{ data: cities.map(c => c.screenPageViews), backgroundColor: CHART_COLORS, borderRadius: 4, barThickness: 28 }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { grid: { color: '#1e2130' } }, y: { grid: { display: false } } }
+    }
+  });
+
+  // Top Articles table
+  const subs = getArticleSubs();
+  const sorted = [...eng].sort((a, b) => b.screenPageViews - a.screenPageViews).slice(0, 10);
+  const table = document.getElementById('topArticlesTable');
+  table.innerHTML = `<thead><tr><th style="width:40%">Article</th><th>Views</th><th>Users</th><th>Bounce</th><th>Avg Duration</th><th>Subs</th></tr></thead><tbody>` +
+    sorted.map(r => `<tr>
+      <td title="${r.pagePath}">${slug(r.pagePath)}</td>
+      <td class="num">${fmt(r.screenPageViews)}</td>
+      <td class="num">${fmt(r.totalUsers)}</td>
+      <td class="num">${pct(r.bounceRate)}</td>
+      <td class="num">${dur(r.averageSessionDuration)}</td>
+      <td class="num">${subs[r.pagePath] || '—'}</td>
+    </tr>`).join('') + '</tbody>';
+}
+
+// =========================================================================
+// ARTICLES TAB
+// =========================================================================
+function renderArticles() {
+  const eng = DATA.engagement || [];
+  const subs = getArticleSubs();
+  const catMap = getCategoryMap();
+  
+  // Populate category filter
+  const allCats = new Set();
+  for (const cats of Object.values(catMap)) cats.forEach(c => allCats.add(c));
+  const catSelect = document.getElementById('articleCategoryFilter');
+  [...allCats].sort().forEach(c => {
+    catSelect.innerHTML += `<option value="${c}">${c}</option>`;
+  });
+
+  let sortField = 'pageviews';
+  let searchTerm = '';
+  let categoryFilter = '';
+  articlePage = 0;
+
+  function getFiltered() {
+    let rows = [...eng];
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      rows = rows.filter(r => r.pagePath.toLowerCase().includes(term));
+    }
+    if (categoryFilter) {
+      rows = rows.filter(r => {
+        const cats = catMap[r.pagePath] || [];
+        return cats.includes(categoryFilter);
+      });
+    }
+    const sortFns = {
+      pageviews: (a, b) => b.screenPageViews - a.screenPageViews,
+      users: (a, b) => b.totalUsers - a.totalUsers,
+      bounce: (a, b) => (a.bounceRate || 1) - (b.bounceRate || 1),
+      duration: (a, b) => (b.averageSessionDuration || 0) - (a.averageSessionDuration || 0),
+      subs: (a, b) => (subs[b.pagePath] || 0) - (subs[a.pagePath] || 0),
+    };
+    rows.sort(sortFns[sortField] || sortFns.pageviews);
+    return rows;
+  }
+
+  function render() {
+    const filtered = getFiltered();
+    const showing = filtered.slice(0, (articlePage + 1) * PAGE_SIZE);
+    document.getElementById('articleCount').textContent = `${showing.length} of ${filtered.length} articles`;
+
+    const table = document.getElementById('articlesTable');
+    table.innerHTML = `<thead><tr>
+      <th style="width:35%">Article</th><th>Category</th><th>Views</th><th>Users</th><th>Bounce</th><th>Avg Duration</th><th>Subs</th>
+    </tr></thead><tbody>` +
+      showing.map(r => {
+        const cats = catMap[r.pagePath] || [];
+        return `<tr class="clickable" data-path="${r.pagePath}">
+          <td title="${r.pagePath}">${slug(r.pagePath)}</td>
+          <td style="font-size:11px;color:var(--text2)">${cats.join(', ') || '—'}</td>
+          <td class="num">${fmt(r.screenPageViews)}</td>
+          <td class="num">${fmt(r.totalUsers)}</td>
+          <td class="num">${pct(r.bounceRate)}</td>
+          <td class="num">${dur(r.averageSessionDuration)}</td>
+          <td class="num">${subs[r.pagePath] || '—'}</td>
+        </tr>`;
+      }).join('') + '</tbody>';
+
+    document.getElementById('loadMoreArticles').style.display = showing.length < filtered.length ? '' : 'none';
+
+    // Click handlers
+    table.querySelectorAll('tr.clickable').forEach(tr => {
+      tr.addEventListener('click', () => openArticleDetail(tr.dataset.path));
+    });
+  }
+
+  document.getElementById('articleSearch').addEventListener('input', e => {
+    searchTerm = e.target.value; articlePage = 0; render();
+  });
+  document.getElementById('articleCategoryFilter').addEventListener('change', e => {
+    categoryFilter = e.target.value; articlePage = 0; render();
+  });
+  document.getElementById('articleSort').addEventListener('change', e => {
+    sortField = e.target.value; articlePage = 0; render();
+  });
+  document.getElementById('loadMoreArticles').addEventListener('click', () => {
+    articlePage++; render();
+  });
+
+  render();
+}
+
+function openArticleDetail(path) {
+  const panel = document.getElementById('articleDetail');
+  const eng = (DATA.engagement || []).find(r => r.pagePath === path);
+  if (!eng) return;
+
+  const subs = getArticleSubs();
+  const catMap = getCategoryMap();
+  const cats = catMap[path] || [];
+  const subCount = subs[path] || 0;
+
+  // Traffic sources for this article
+  const traffic = (DATA.traffic_sources || []).filter(r => r.pagePath === path);
+  const trafficSorted = traffic.sort((a, b) => b.screenPageViews - a.screenPageViews);
+
+  // Device for this article
+  const devices = (DATA.device || []).filter(r => r.pagePath === path);
+
+  // New vs returning
+  const nvr = (DATA.new_vs_returning || []).filter(r => r.pagePath === path);
+  const newViews = nvr.find(r => r.newVsReturning === 'new');
+  const retViews = nvr.find(r => r.newVsReturning === 'returning');
+
+  // Geo for this article
+  const geo = (DATA.geographic || []).filter(r => r.pagePath === path);
+
+  panel.innerHTML = `
+    <span class="detail-close" onclick="document.getElementById('articleDetail').classList.remove('open')">&times;</span>
+    <h2>${slug(path)}</h2>
+    <div class="detail-meta">
+      ${path}<br>
+      ${cats.length ? 'Category: ' + cats.join(', ') + ' · ' : ''}${fmt(eng.screenPageViews)} views · ${fmt(eng.totalUsers)} users · ${pct(eng.bounceRate)} bounce · ${dur(eng.averageSessionDuration)} avg · ${subCount} subscriptions
+    </div>
+    <div class="row row-${geo.length ? '3' : '2'}">
+      <div class="card">
+        <h3>Traffic Sources</h3>
+        ${trafficSorted.length ? `<div class="chart-container chart-sm"><canvas id="detailTraffic"></canvas></div>` : '<p style="color:var(--text2)">No detailed traffic data (below 50 views threshold)</p>'}
+      </div>
+      <div class="card">
+        <h3>Readers</h3>
+        ${devices.length ? `<div class="chart-container chart-sm"><canvas id="detailDevice"></canvas></div>` : '<p style="color:var(--text2)">No detailed device data</p>'}
+        ${nvr.length ? `<div style="margin-top:16px;font-size:12px;color:var(--text2)">New: ${fmt(newViews?.totalUsers || 0)} · Returning: ${fmt(retViews?.totalUsers || 0)}</div>` : ''}
+      </div>
+      ${geo.length ? `<div class="card"><h3>Reader Locations</h3><div class="map-container map-sm" id="detailMap"></div></div>` : ''}
+    </div>
+  `;
+  panel.classList.add('open');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Render detail charts
+  if (trafficSorted.length) {
+    const top8 = trafficSorted.slice(0, 8);
+    new Chart(document.getElementById('detailTraffic'), {
+      type: 'bar',
+      data: {
+        labels: top8.map(r => r.sessionSource + '/' + r.sessionMedium),
+        datasets: [{ data: top8.map(r => r.screenPageViews), backgroundColor: CHART_COLORS, borderRadius: 4 }]
+      },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+        scales: { x: { grid: { color: '#1e2130' } }, y: { grid: { display: false } } } }
+    });
+  }
+
+  if (devices.length) {
+    new Chart(document.getElementById('detailDevice'), {
+      type: 'doughnut',
+      data: {
+        labels: devices.map(r => r.deviceCategory),
+        datasets: [{ data: devices.map(r => r.screenPageViews), backgroundColor: CHART_COLORS.slice(0, devices.length) }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+  }
+
+  if (geo.length) {
+    setTimeout(() => {
+      const map = L.map('detailMap').setView([39.7, -104.9], 4);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OSM &copy; CARTO', maxZoom: 18
+      }).addTo(map);
+      addGeoMarkers(map, geo);
+    }, 100);
+  }
+}
+
+// =========================================================================
+// AUDIENCE TAB
+// =========================================================================
+function renderAudience() {
+  chartDefaults();
+
+  // Device breakdown (aggregate)
+  const devices = DATA.device || [];
+  const devTotals = {};
+  for (const r of devices) {
+    devTotals[r.deviceCategory] = (devTotals[r.deviceCategory] || 0) + r.screenPageViews;
+  }
+  const devEntries = Object.entries(devTotals).sort((a, b) => b[1] - a[1]);
+  destroyChart('chartDevice');
+  chartInstances['chartDevice'] = new Chart(document.getElementById('chartDevice'), {
+    type: 'doughnut',
+    data: {
+      labels: devEntries.map(d => d[0]),
+      datasets: [{ data: devEntries.map(d => d[1]), backgroundColor: CHART_COLORS }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+  });
+
+  // New vs Returning (aggregate)
+  const nvr = DATA.new_vs_returning || [];
+  const nvrTotals = {};
+  for (const r of nvr) {
+    nvrTotals[r.newVsReturning] = (nvrTotals[r.newVsReturning] || 0) + r.totalUsers;
+  }
+  const nvrEntries = Object.entries(nvrTotals).sort((a, b) => b[1] - a[1]);
+  destroyChart('chartNewReturn');
+  chartInstances['chartNewReturn'] = new Chart(document.getElementById('chartNewReturn'), {
+    type: 'doughnut',
+    data: {
+      labels: nvrEntries.map(d => d[0] === 'new' ? 'New' : 'Returning'),
+      datasets: [{ data: nvrEntries.map(d => d[1]), backgroundColor: ['#4a9eff', '#34d399'] }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+  });
+
+  // Map
+  setTimeout(() => {
+    const map = L.map('audienceMap').setView([39.7, -104.9], 4);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OSM &copy; CARTO', maxZoom: 18
+    }).addTo(map);
+    addGeoMarkers(map, DATA.geographic_site_level || []);
+  }, 100);
+
+  // Heatmap
+  renderHeatmap();
+}
+
+// City coordinates cache (approximate for major cities)
+const CITY_COORDS = {
+  'Denver': [39.74, -104.99], 'Aurora': [39.73, -104.83], 'Centennial': [39.58, -104.88],
+  'Lakewood': [39.70, -105.08], 'New York': [40.71, -74.01], 'Ashburn': [39.04, -77.49],
+  'Boulder': [40.01, -105.27], 'Colorado Springs': [38.83, -104.82], 'Fort Collins': [40.59, -105.08],
+  'Littleton': [39.61, -105.02], 'Arvada': [39.80, -105.09], 'Westminster': [39.84, -105.04],
+  'Broomfield': [39.92, -105.09], 'Englewood': [39.65, -104.99], 'Parker': [39.52, -104.76],
+  'Highlands Ranch': [39.55, -104.97], 'Castle Rock': [39.37, -104.86], 'Thornton': [39.87, -104.97],
+  'Longmont': [40.17, -105.10], 'Golden': [39.76, -105.22], 'Los Angeles': [34.05, -118.24],
+  'Chicago': [41.88, -87.63], 'San Francisco': [37.77, -122.42], 'Houston': [29.76, -95.37],
+  'Dallas': [32.78, -96.80], 'Phoenix': [33.45, -112.07], 'Seattle': [47.61, -122.33],
+  'Washington': [38.91, -77.04], 'Atlanta': [33.75, -84.39], 'Boston': [42.36, -71.06],
+  'San Diego': [32.72, -117.16], 'Portland': [45.52, -122.68], 'Minneapolis': [44.98, -93.27],
+  'Miami': [25.76, -80.19], 'Nashville': [36.16, -86.78], 'Salt Lake City': [40.76, -111.89],
+  'Austin': [30.27, -97.74], 'Singapore': [1.35, 103.82], 'Lanzhou': [36.06, 103.83],
+};
+
+function addGeoMarkers(map, data) {
+  const maxViews = Math.max(...data.map(r => r.screenPageViews));
+  for (const r of data) {
+    if (r.city === '(not set)') continue;
+    const coords = CITY_COORDS[r.city];
+    if (!coords) continue;
+    const size = Math.max(6, Math.min(40, (r.screenPageViews / maxViews) * 40));
+    L.circleMarker(coords, {
+      radius: size,
+      fillColor: '#4a9eff',
+      fillOpacity: 0.5,
+      color: '#4a9eff',
+      opacity: 0.8,
+      weight: 1
+    }).bindPopup(`<b>${r.city}</b>${r.region ? ', ' + r.region : ''}<br>${fmt(r.screenPageViews)} views · ${fmt(r.totalUsers)} users`)
+      .addTo(map);
+  }
+}
+
+function renderHeatmap() {
+  const temporal = DATA.temporal_patterns || [];
+  const grid = {};
+  let max = 0;
+  for (const r of temporal) {
+    const key = r.dayOfWeek + '-' + r.hour;
+    grid[key] = r.screenPageViews;
+    if (r.screenPageViews > max) max = r.screenPageViews;
+  }
+
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const hm = document.getElementById('heatmap');
+  let html = '<div></div>';
+  for (let h = 0; h < 24; h++) {
+    html += `<div class="hour-label">${h}</div>`;
+  }
+  for (let d = 0; d < 7; d++) {
+    html += `<div class="day-label">${days[d]}</div>`;
+    for (let h = 0; h < 24; h++) {
+      const val = grid[d + '-' + h] || 0;
+      const intensity = max > 0 ? val / max : 0;
+      const r = Math.round(74 + intensity * 0);
+      const g = Math.round(158 + intensity * 53);
+      const b = Math.round(255 - intensity * 56);
+      const alpha = 0.1 + intensity * 0.9;
+      html += `<div class="cell" style="background:rgba(${74},${Math.round(100 + intensity*155)},${255},${alpha.toFixed(2)})" title="${days[d]} ${h}:00 — ${fmt(val)} views">${fmt(val)}</div>`;
+    }
+  }
+  hm.innerHTML = html;
+}
+
+// =========================================================================
+// CONVERSION TAB
+// =========================================================================
+function renderConversion() {
+  chartDefaults();
+  const funnel = DATA.subscription_funnel || [];
+  const totalSubs = funnel.reduce((s, r) => s + r.eventCount, 0);
+
+  // Source totals for subs
+  const srcSubs = {};
+  const articleSubs = {};
+  for (const r of funnel) {
+    const key = r.sessionSource + ' / ' + r.sessionMedium;
+    srcSubs[key] = (srcSubs[key] || 0) + r.eventCount;
+    const p = r.landingPage.endsWith('/') ? r.landingPage : r.landingPage + '/';
+    articleSubs[p] = (articleSubs[p] || 0) + r.eventCount;
+  }
+
+  // KPIs
+  const srcEntries = Object.entries(srcSubs).sort((a, b) => b[1] - a[1]);
+  const eng = DATA.engagement || [];
+  const totalSessions = eng.reduce((s, r) => s + (r.sessions || 0), 0);
+
+  document.getElementById('convKpis').innerHTML = [
+    { label: 'Total Subscriptions', value: fmt(totalSubs), sub: '90-day' },
+    { label: 'Top Source', value: srcEntries[0] ? srcEntries[0][0] : '—', sub: srcEntries[0] ? fmt(srcEntries[0][1]) + ' subs' : '' },
+    { label: 'Converting Articles', value: fmt(Object.keys(articleSubs).length), sub: 'unique articles' },
+    { label: 'Overall Conv Rate', value: totalSessions > 0 ? pct(totalSubs / totalSessions) : '—', sub: 'subs / sessions' },
+  ].map(k => `<div class="kpi"><div class="label">${k.label}</div><div class="value" style="font-size:${k.value.length > 20 ? 16 : 28}px">${k.value}</div><div class="sub">${k.sub}</div></div>`).join('');
+
+  // Sub sources chart
+  const top8 = srcEntries.slice(0, 8);
+  destroyChart('chartSubSources');
+  chartInstances['chartSubSources'] = new Chart(document.getElementById('chartSubSources'), {
+    type: 'bar',
+    data: {
+      labels: top8.map(s => s[0]),
+      datasets: [{ data: top8.map(s => s[1]), backgroundColor: CHART_COLORS, borderRadius: 4 }]
+    },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { grid: { color: '#1e2130' } }, y: { grid: { display: false } } } }
+  });
+
+  // Top converting articles
+  const artSorted = Object.entries(articleSubs).sort((a, b) => b[1] - a[1]);
+  const convTable = document.getElementById('convArticlesTable');
+  convTable.innerHTML = `<thead><tr><th style="width:60%">Article</th><th>Subscriptions</th></tr></thead><tbody>` +
+    artSorted.map(([p, count]) => `<tr><td title="${p}">${slug(p)}</td><td class="num">${count}</td></tr>`).join('') +
+    '</tbody>';
+
+  // Full funnel table
+  const funnelSorted = [...funnel].sort((a, b) => b.eventCount - a.eventCount);
+  const fTable = document.getElementById('funnelTable');
+  fTable.innerHTML = `<thead><tr><th style="width:40%">Landing Page</th><th>Source</th><th>Medium</th><th>Subscriptions</th></tr></thead><tbody>` +
+    funnelSorted.map(r => `<tr>
+      <td title="${r.landingPage}">${slug(r.landingPage)}</td>
+      <td>${r.sessionSource}</td>
+      <td>${r.sessionMedium}</td>
+      <td class="num">${r.eventCount}</td>
+    </tr>`).join('') + '</tbody>';
+}
+
+// =========================================================================
+// TRENDS TAB
+// =========================================================================
+function renderTrends() {
+  chartDefaults();
+  const daily = DATA.daily_time_series || [];
+  const dates = daily.map(r => {
+    const d = r.date;
+    return d.slice(4, 6) + '/' + d.slice(6, 8);
+  });
+
+  destroyChart('chartDaily');
+  chartInstances['chartDaily'] = new Chart(document.getElementById('chartDaily'), {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [
+        { label: 'Pageviews', data: daily.map(r => r.screenPageViews), borderColor: '#4a9eff', backgroundColor: 'rgba(74,158,255,0.1)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+        { label: 'Users', data: daily.map(r => r.totalUsers), borderColor: '#34d399', backgroundColor: 'rgba(52,211,153,0.1)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' },
+      plugins: { legend: { position: 'top' } },
+      scales: { x: { grid: { color: '#1e2130' }, ticks: { maxTicksLimit: 15 } }, y: { grid: { color: '#1e2130' } } }
+    }
+  });
+
+  destroyChart('chartDailySessions');
+  chartInstances['chartDailySessions'] = new Chart(document.getElementById('chartDailySessions'), {
+    type: 'line',
+    data: {
+      labels: dates,
+      datasets: [
+        { label: 'Sessions', data: daily.map(r => r.sessions), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+        { label: 'New Users', data: daily.map(r => r.newUsers), borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.1)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' },
+      plugins: { legend: { position: 'top' } },
+      scales: { x: { grid: { color: '#1e2130' }, ticks: { maxTicksLimit: 15 } }, y: { grid: { color: '#1e2130' } } }
+    }
+  });
+}
+
+// =========================================================================
+// SEO TAB
+// =========================================================================
+function renderSEO() {
+  if (DATA.search_queries && DATA.search_queries.length > 0) {
+    const sorted = [...DATA.search_queries].sort((a, b) => b.clicks - a.clicks);
+    document.getElementById('seoContent').innerHTML = `<h3>Search Queries</h3>
+      <div class="search-bar"><input type="text" id="seoSearch" placeholder="Filter queries..."><div class="count">${sorted.length} queries</div></div>
+      <div class="table-wrap"><table id="seoTable">
+        <thead><tr><th style="width:35%">Query</th><th style="width:30%">Page</th><th>Clicks</th><th>Impressions</th><th>CTR</th><th>Position</th></tr></thead>
+        <tbody>${sorted.slice(0, 100).map(r => `<tr>
+          <td>${r.query}</td><td title="${r.page}" style="font-size:11px;color:var(--text2)">${slug(r.page)}</td>
+          <td class="num">${r.clicks}</td><td class="num">${fmt(r.impressions)}</td>
+          <td class="num">${pct(r.ctr)}</td><td class="num">${r.position.toFixed(1)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+  }
+}
+
+// =========================================================================
+// Boot
+// =========================================================================
+init();
+</script>
+</body>
+</html>
