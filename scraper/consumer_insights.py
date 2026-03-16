@@ -13,6 +13,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import sys
 import time
 import xml.etree.ElementTree as ET
@@ -33,6 +34,9 @@ MAX_RETRIES = 3
 RETRY_BACKOFF_BASE = 2  # seconds, doubles each retry
 RSS_FEED_URL = "https://businessden.com/feed/"
 GEO_CITIES_PER_ARTICLE = 50
+ARTICLE_PATH_PATTERN = re.compile(r"^/\d{4}/\d{2}/\d{2}/")  # /YYYY/MM/DD/slug/
+DETAIL_MIN_PAGEVIEWS = 50    # Traffic sources, device, new/returning: only articles with 50+ views
+GEO_MIN_PAGEVIEWS = 100      # Geographic detail: only articles with 100+ views
 
 logging.basicConfig(
     level=logging.INFO,
@@ -347,6 +351,90 @@ def cap_geographic_data(geo_rows, max_cities=GEO_CITIES_PER_ARTICLE):
     return capped
 
 
+def filter_article_paths(rows, path_key="pagePath"):
+    """Filter rows to only actual article URLs (YYYY/MM/DD pattern)."""
+    if not rows:
+        return rows
+    before = len(rows)
+    filtered = [r for r in rows if ARTICLE_PATH_PATTERN.match(r.get(path_key, ""))]
+    log.info(f"Article filter ({path_key}): {before} → {len(filtered)} rows")
+    return filtered
+
+
+def filter_by_pageview_threshold(rows, qualifying_paths, path_key="pagePath"):
+    """Filter rows to only articles in the qualifying set."""
+    if not rows:
+        return rows
+    before = len(rows)
+    filtered = [r for r in rows if r.get(path_key, "") in qualifying_paths]
+    log.info(f"Pageview threshold filter: {before} → {len(filtered)} rows")
+    return filtered
+
+
+def compute_site_level_geo(geo_rows, top_n=100):
+    """Aggregate geographic data across all articles for site-level view.
+    
+    Returns top N cities by total pageviews.
+    """
+    if not geo_rows:
+        return []
+    
+    city_totals = defaultdict(lambda: {"screenPageViews": 0, "totalUsers": 0})
+    for row in geo_rows:
+        key = (row.get("city", ""), row.get("region", ""))
+        city_totals[key]["screenPageViews"] += row.get("screenPageViews", 0)
+        city_totals[key]["totalUsers"] += row.get("totalUsers", 0)
+    
+    aggregated = [
+        {"city": k[0], "region": k[1], **v}
+        for k, v in city_totals.items()
+    ]
+    aggregated.sort(key=lambda r: r["screenPageViews"], reverse=True)
+    result = aggregated[:top_n]
+    log.info(f"Site-level geo: {len(city_totals)} cities → top {len(result)}")
+    return result
+
+
+def apply_all_filters(results):
+    """Apply article path filtering and pageview thresholds to all datasets.
+    
+    Filtering strategy:
+    - engagement: all articles (one row per article, powers the full table)
+    - traffic_sources, device, new_vs_returning: articles with 50+ pageviews
+    - geographic: articles with 100+ pageviews (per-article), plus site-level aggregate
+    - subscription_funnel: article filter only (all subscription events are valuable)
+    - temporal_patterns, daily_time_series: no filtering (not per-article)
+    """
+    # Filter engagement to article paths only (keep all articles for the table)
+    results["engagement"] = filter_article_paths(results.get("engagement") or [])
+    
+    # Build qualifying sets from engagement data
+    engagement = results.get("engagement") or []
+    paths_50 = {r["pagePath"] for r in engagement if r.get("screenPageViews", 0) >= DETAIL_MIN_PAGEVIEWS}
+    paths_100 = {r["pagePath"] for r in engagement if r.get("screenPageViews", 0) >= GEO_MIN_PAGEVIEWS}
+    log.info(f"Qualifying articles: {len(engagement)} total, {len(paths_50)} with {DETAIL_MIN_PAGEVIEWS}+ views, {len(paths_100)} with {GEO_MIN_PAGEVIEWS}+ views")
+    
+    # Filter traffic sources, device, new/returning to 50+ pageview articles
+    for key in ["traffic_sources", "device", "new_vs_returning"]:
+        rows = filter_article_paths(results.get(key) or [])
+        results[key] = filter_by_pageview_threshold(rows, paths_50)
+    
+    # Geographic: compute site-level aggregate from ALL article data first
+    all_geo = filter_article_paths(results.get("geographic") or [])
+    results["geographic_site_level"] = compute_site_level_geo(all_geo)
+    
+    # Then filter per-article geo to 100+ pageview articles and cap cities
+    results["geographic"] = filter_by_pageview_threshold(all_geo, paths_100)
+    results["geographic"] = cap_geographic_data(results["geographic"])
+    
+    # Subscription funnel: article filter only (keep all subscription events)
+    results["subscription_funnel"] = filter_article_paths(
+        results.get("subscription_funnel") or [], path_key="landingPage"
+    )
+    
+    return results
+
+
 # ---------------------------------------------------------------------------
 # RSS Feed — Category Extraction
 # ---------------------------------------------------------------------------
@@ -604,9 +692,9 @@ def main():
             failed.append(name)
         results[name] = result
 
-    # --- Post-process geographic data ---
-    if results.get("geographic") is not None:
-        results["geographic"] = cap_geographic_data(results["geographic"])
+    # --- Post-process: filter to articles, apply thresholds ---
+    log.info("--- Filtering ---")
+    results = apply_all_filters(results)
 
     # --- Fetch Search Console data ---
     log.info("--- Search Console ---")
@@ -637,10 +725,17 @@ def main():
                 "subscription": {"start": sub_start, "end": end_date},
                 "temporal": {"start": temporal_start, "end": end_date}
             },
-            "failed_queries": failed
+            "failed_queries": failed,
+            "filters": {
+                "article_pattern": r"/YYYY/MM/DD/",
+                "detail_min_pageviews": DETAIL_MIN_PAGEVIEWS,
+                "geo_min_pageviews": GEO_MIN_PAGEVIEWS,
+                "geo_cities_per_article": GEO_CITIES_PER_ARTICLE
+            }
         },
         "traffic_sources": results.get("traffic_sources"),
         "geographic": results.get("geographic"),
+        "geographic_site_level": results.get("geographic_site_level"),
         "device": results.get("device"),
         "engagement": results.get("engagement"),
         "subscription_funnel": results.get("subscription_funnel"),
@@ -653,7 +748,7 @@ def main():
 
     if not args.dry_run:
         with open(args.output, "w") as f:
-            json.dump(output, f, indent=2)
+            json.dump(output, f, separators=(",", ":"))
         log.info(f"Output written to {args.output}")
 
         # --- Update history ---
@@ -661,9 +756,9 @@ def main():
 
     # --- Summary ---
     log.info("=== Summary ===")
-    for key in ["traffic_sources", "geographic", "device", "engagement",
-                "subscription_funnel", "temporal_patterns", "new_vs_returning",
-                "daily_time_series", "search_queries", "categories"]:
+    for key in ["traffic_sources", "geographic", "geographic_site_level", "device",
+                "engagement", "subscription_funnel", "temporal_patterns",
+                "new_vs_returning", "daily_time_series", "search_queries", "categories"]:
         val = results.get(key)
         if val is None:
             log.info(f"  {key}: FAILED / SKIPPED")
