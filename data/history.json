@@ -1,0 +1,23 @@
+{
+  "snapshots": [
+    {
+      "date": "2026-03-16",
+      "run_number": 1,
+      "total_pageviews": 668519,
+      "total_users": 511605,
+      "total_sessions": 601980,
+      "new_users": 327540,
+      "subscriber_events": 189,
+      "top_source": {
+        "source": "(direct)",
+        "medium": "(none)",
+        "pct": 0.3726
+      },
+      "top_article": {
+        "path": "/",
+        "pageviews": 90817
+      },
+      "article_count": 21258
+    }
+  ]
+}
