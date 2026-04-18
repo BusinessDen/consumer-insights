@@ -702,6 +702,25 @@
         "pageviews": 13484
       },
       "article_count": 14412
+    },
+    {
+      "date": "2026-04-18",
+      "run_number": 38,
+      "total_pageviews": 479490,
+      "total_users": 410171,
+      "total_sessions": 454920,
+      "new_users": 334323,
+      "subscriber_events": 114,
+      "top_source": {
+        "source": "hs_email",
+        "medium": "email",
+        "pct": 0.4351
+      },
+      "top_article": {
+        "path": "/2026/01/20/2m-deal-near-burnham-yard-suggests-broncos-may-be-thinking-bigger-than-known/",
+        "pageviews": 13484
+      },
+      "article_count": 14373
     }
   ]
 }
