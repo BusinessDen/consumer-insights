@@ -1253,6 +1253,25 @@
         "pageviews": 12409
       },
       "article_count": 13296
+    },
+    {
+      "date": "2026-05-17",
+      "run_number": 67,
+      "total_pageviews": 442729,
+      "total_users": 375500,
+      "total_sessions": 419511,
+      "new_users": 289453,
+      "subscriber_events": 113,
+      "top_source": {
+        "source": "hs_email",
+        "medium": "email",
+        "pct": 0.4632
+      },
+      "top_article": {
+        "path": "/2026/02/24/denvers-population-growth-engine-slams-into-reverse/",
+        "pageviews": 12410
+      },
+      "article_count": 13128
     }
   ]
 }
