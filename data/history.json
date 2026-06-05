@@ -1614,6 +1614,25 @@
         "pageviews": 8198
       },
       "article_count": 10696
+    },
+    {
+      "date": "2026-06-05",
+      "run_number": 86,
+      "total_pageviews": 420371,
+      "total_users": 355267,
+      "total_sessions": 397500,
+      "new_users": 260834,
+      "subscriber_events": 112,
+      "top_source": {
+        "source": "hs_email",
+        "medium": "email",
+        "pct": 0.4736
+      },
+      "top_article": {
+        "path": "/2026/04/06/former-denver-mayor-hancock-buys-five-points-building/",
+        "pageviews": 8198
+      },
+      "article_count": 10664
     }
   ]
 }
