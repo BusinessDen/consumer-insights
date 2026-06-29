@@ -2070,6 +2070,25 @@
         "pageviews": 13771
       },
       "article_count": 9646
+    },
+    {
+      "date": "2026-06-29",
+      "run_number": 110,
+      "total_pageviews": 424349,
+      "total_users": 357667,
+      "total_sessions": 400231,
+      "new_users": 253533,
+      "subscriber_events": 101,
+      "top_source": {
+        "source": "hs_email",
+        "medium": "email",
+        "pct": 0.4597
+      },
+      "top_article": {
+        "path": "/2026/06/23/national-retailer-takes-former-safeway-along-colorado-blvd/",
+        "pageviews": 15172
+      },
+      "article_count": 9607
     }
   ]
 }
